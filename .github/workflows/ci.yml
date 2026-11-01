@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: facepass
+          POSTGRES_PASSWORD: facepass
+          POSTGRES_DB: facepass_test
+        ports:
+          - 5435:5432
+        options: >-
+          --health-cmd "pg_isready -U facepass"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      FACEPASS_TEST_DATABASE_URL: postgresql+psycopg://facepass:facepass@127.0.0.1:5435/facepass_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.lock
+      - name: Install
+        run: pip install -c requirements.lock -e ".[dev]"
+      - name: Cache models
+        uses: actions/cache@v4
+        with:
+          path: models
+          key: models-${{ hashFiles('src/facepass/engine/manifest.py') }}
+      - name: Download models
+        run: facepass models download
+      - name: Lint
+        run: |
+          ruff check .
+          ruff format --check .
+      - name: Type check
+        run: mypy
+      - name: Test
+        run: pytest --cov --cov-report=term-missing
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t facepass-api .

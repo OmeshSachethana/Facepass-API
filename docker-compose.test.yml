@@ -1,0 +1,14 @@
+# Throwaway database for `pytest`. Data lives in memory and disappears with the container.
+name: facepass-test
+
+services:
+  test-db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: facepass
+      POSTGRES_PASSWORD: facepass
+      POSTGRES_DB: facepass_test
+    ports:
+      - "127.0.0.1:5435:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
